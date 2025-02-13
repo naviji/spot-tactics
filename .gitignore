@@ -1,2 +1,5 @@
 data/
 .env
+.DS_Store
+_pycache__/
+puzzles.db
