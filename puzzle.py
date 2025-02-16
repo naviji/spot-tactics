@@ -1,5 +1,6 @@
 import chess
-from chess import square_rank, Color, Board, Square, Piece, square_distance, popcount, WHITE, BLACK, ray, scan_forward
+from chess.pgn import Game
+from chess import square_rank, Color, Board, Square, Piece, square_distance, popcount, WHITE, BLACK, ray, scan_forward, Move
 from chess import KING, QUEEN, ROOK, BISHOP, KNIGHT, PAWN
 from typing import List, Tuple
 from chess.pgn import ChildNode
@@ -18,13 +19,13 @@ class Puzzle:
             ("pin", pin)
         ]
 
-def fork(node: ChildNode) -> bool:
-    board = node.board()
+def fork(fen: str, best_move: str) -> bool:
+    node = Game.from_board(Board(fen)).add_main_variation(Move.from_uci(best_move))
     nb = 0
     for piece, square in attacked_opponent_squares(
-        board, node.move.to_square, not node.board().turn
+        node.board(), node.move.to_square, not node.board().turn
     ):
-        if is_square_attacked_more_than_defended(board, square, node.board().turn):
+        if is_square_attacked_more_than_defended(node.board(), square, node.board().turn):
             nb += 1
     return nb > 1
 
