@@ -22,111 +22,11 @@ from chess import (
     PieceType,
     square_distance,
 )
-
+import Puzzle, EngineMove, NextMovePair, TagKind from model
 pair_limit = chess.engine.Limit(depth = 50, time = 30, nodes = 25_000_000)
 mate_defense_limit = chess.engine.Limit(depth = 15, time = 10, nodes = 8_000_000)
 
-TagKind = Literal[
-    "advancedPawn",
-    "advantage",
-    "anastasiaMate",
-    "arabianMate",
-    "attackingF2F7",
-    "attraction",
-    "backRankMate",
-    "bishopEndgame",
-    "bodenMate",
-    "capturingDefender",
-    "castling",
-    "clearance",
-    "coercion",
-    "crushing",
-    "defensiveMove",
-    "discoveredAttack",
-    "deflection",
-    "doubleBishopMate",
-    "doubleCheck",
-    "dovetailMate",
-    "equality",
-    "enPassant",
-    "exposedKing",
-    "fork",
-    "hangingPiece",
-    "hookMate",
-    "interference",
-    "intermezzo",
-    "kingsideAttack",
-    "knightEndgame",
-    "long",
-    "mate",
-    "mateIn5",
-    "mateIn4",
-    "mateIn3",
-    "mateIn2",
-    "mateIn1",
-    "oneMove",
-    "overloading",
-    "pawnEndgame",
-    "pin",
-    "promotion",
-    "queenEndgame",
-    "queensideAttack",
-    "quietMove",
-    "rookEndgame",
-    "queenRookEndgame",
-    "sacrifice",
-    "short",
-    "simplification",
-    "skewer",
-    "smotheredMate",
-    "trappedPiece",
-    "underPromotion",
-    "veryLong",
-    "xRayAttack",
-    "zugzwang"
-]
-
 from util import get_next_move_pair, material_count, material_diff, is_up_in_material, maximum_castling_rights, win_chances, count_mates
-
-
-@dataclass
-class Puzzle:
-    node: ChildNode
-    moves: List[Move]
-    cp: int
-    tags: List[TagKind]
-    game: Game
-    pov : Color = field(init=False)
-    mainline: List[ChildNode] = field(init=False)
-
-    def __post_init__(self):
-        self.pov = not self.game.turn()
-        self.mainline = list(self.game.mainline())
-# @dataclass
-# class Puzzle:
-#     id: str
-#     game: Game
-#     pov : Color = field(init=False)
-#     mainline: List[ChildNode] = field(init=False)
-#     cp: int
-
-    # def __post_init__(self):
-    #     self.pov = not self.game.turn()
-    #     self.mainline = list(self.game.mainline())
-
-@dataclass
-class EngineMove:
-    move: Move
-    score: Score
-
-@dataclass
-class NextMovePair:
-    node: GameNode
-    winner: Color
-    best: EngineMove
-    second: Optional[EngineMove]
-
-
 
 def advanced_pawn(puzzle: Puzzle) -> bool:
     for node in puzzle.mainline[1::2]:
@@ -965,22 +865,15 @@ def mate_in(puzzle: Puzzle) -> Optional[TagKind]:
 def process_pgn_file(pgn_file, generator):
     """ Reads a PGN file and analyzes each game to extract puzzles. """
     with open(pgn_file, "r", encoding="utf-8") as pgn:
-        game_data = ""
         for line in pgn:
-            if line.startswith("[Site "):  
-                if game_data:  # If a game was already collected, process it
-                    puzzles = analyze_game(game_data, generator)
-                    for puzzle in puzzles:
-                        save_puzzle(puzzle)
-                game_data = line  # Start new game collection
-            else:
-                game_data += line
+            if line.startswith("[Site "):
+                site = line
+            elif "%eval" in line:
+                game = chess.pgn.read_game(StringIO("{}\n{}".format(site, line)))
+                puzzles = generator.analyze_game(game)
+                for puzzle in puzzles:
+                    save_puzzle(puzzle)
 
-        # Process the last game in the file
-        if game_data:
-            puzzles = analyze_game(game_data, generator)
-            for puzzle in puzzles:
-                save_puzzle(puzzle)
 def maximum_castling_rights(board: chess.Board) -> chess.Bitboard:
     return (
         (board.pieces_mask(chess.ROOK, chess.WHITE) & (chess.BB_A1 | chess.BB_H1) if board.king(chess.WHITE) == chess.E1 else chess.BB_EMPTY) |
@@ -1006,34 +899,13 @@ class Generator:
     def analyze_game(self, game: Game) -> List[Puzzle]:
         result = []
         prev_score: Score = Cp(20)
-        seen_epds: Set[str] = set()
-        board = game.board()
-        skip_until_irreversible = False
 
         for node in game.mainline():
-            if skip_until_irreversible:
-                if board.is_irreversible(node.move):
-                    skip_until_irreversible = False
-                    seen_epds.clear()
-                else:
-                    board.push(node.move)
-                    continue
-
             current_eval = node.eval()
 
             if not current_eval:
                 print("Skipping game without eval on ply {}".format(node.ply()))
                 return []
-
-            board.push(node.move)
-            epd = board.epd()
-            if epd in seen_epds:
-                skip_until_irreversible = True
-                continue
-            seen_epds.add(epd)
-
-            if board.castling_rights != maximum_castling_rights(board):
-                continue
 
             puzzle, score = self.analyze_position(node, prev_score, current_eval, game)
 
@@ -1041,11 +913,13 @@ class Generator:
                 result.append(puzzle)
 
             prev_score = -score
-
-        print("Found nothing from {}".format(game.headers.get("Site")))
-        for puzzle in result:
-            self.tag_puzzle(puzzle)
+        if not result:
+            print("Found nothing from {}".format(game.headers.get("Site")))
+        else:
+            for puzzle in result:
+                self.tag_puzzle(puzzle)
         return result
+    
     
     def tag_puzzle(self, puzzle: Puzzle) -> None:
         tags: List[TagKind] = []
@@ -1169,14 +1043,14 @@ class Generator:
             elif queenside_attack(puzzle):
                 tags.append("queensideAttack")
 
-        if len(puzzle.mainline) == 2:
-            tags.append("oneMove")
-        elif len(puzzle.mainline) == 4:
-            tags.append("short")
-        elif len(puzzle.mainline) >= 8:
-            tags.append("veryLong")
-        else:
-            tags.append("long")
+        # if len(puzzle.mainline) == 2:
+        #     tags.append("oneMove")
+        # elif len(puzzle.mainline) == 4:
+        #     tags.append("short")
+        # elif len(puzzle.mainline) >= 8:
+        #     tags.append("veryLong")
+        # else:
+        #     tags.append("long")
 
         puzzle.tags = tags
 
@@ -1188,6 +1062,7 @@ class Generator:
         board = node.board()
         winner = board.turn
         score = current_eval.pov(winner)
+        # shift = score - prev_score
 
         if board.legal_moves.count() < 2:
             return None, score
@@ -1195,13 +1070,13 @@ class Generator:
         game_url = node.game().headers.get("Site")
 
         print("{} {} to {}".format(node.ply(), node.move.uci() if node.move else None, score))
-        if score > mate_soon:
-            print("Mate {}#{} Probing...".format(game_url, node.ply()))
-            mate_solution = self.cook_mate(copy.deepcopy(node), winner)
-            if mate_solution is None:
-                return None, score
-            return Puzzle(node, mate_solution, 999999999, [], game), score
-        elif score >= Cp(200) and win_chances(score) > win_chances(prev_score) + 0.6:
+        # if score > mate_soon:
+        #     print("Mate {}#{} Probing...".format(game_url, node.ply()))
+        #     mate_solution = self.cook_mate(copy.deepcopy(node), winner)
+        #     if mate_solution is None:
+        #         return None, score
+        #     return Puzzle(node, mate_solution, 999999999, [], game), score
+        if score >= Cp(200) and win_chances(score) > win_chances(prev_score) + ADVANTAGE_THRESHOLD:
             print("Advantage {}#{} {} -> {}. Probing...".format(game_url, node.ply(), prev_score, score))
             puzzle_node = copy.deepcopy(node)
             solution : Optional[List[NextMovePair]] = self.cook_advantage(puzzle_node, winner)
@@ -1211,11 +1086,15 @@ class Generator:
                 if not solution[-1].second:
                     print("Remove final only-move")
                 solution = solution[:-1]
-            if not solution or len(solution) == 1 :
-                print("Discard one-mover")
+            # if not solution or len(solution) == 1 :
+            #     print("Discard one-mover") # Keep one mover for now
+            #     return None, score
+            if not solution:
                 return None, score
             cp = solution[len(solution) - 1].best.score.score()
-            return Puzzle(node, [p.best.move for p in solution], 999999998 if cp is None else cp, [], game), score
+            puzzle = Puzzle(node, [p.best.move for p in solution], 999999998 if cp is None else cp)
+            self.tag_puzzle(puzzle)
+            return puzzle, score
         else:
             return None, score
     
@@ -1265,13 +1144,31 @@ class Generator:
         return (
             pair.second is None or
             self.is_valid_mate_in_one(pair) or
-            win_chances(pair.best.score) > win_chances(pair.second.score) + 0.7
+            win_chances(pair.best.score) > win_chances(pair.second.score) + ONLY_MOVE_THRESHOLD
         )
+    
+    def is_position_quiet(self, pair: NextMovePair) -> bool:
+        node = pair.node
+        return (not node.is_end()
+            and
+            # no check given or escaped
+            not node.board().is_check()
+            and not node.parent.board().is_check()
+            and
+            # no capture made or threatened
+            not util.is_capture(node)
+            and not util.attacked_opponent_pieces(
+                node.board(), node.move.to_square, not node.board().turn
+            )
+            and
+            # no advanced pawn push
+            not util.is_advanced_pawn_move(node)
+            and util.moved_piece_type(node) != KING)
 
     def get_next_pair(self, node: ChildNode, winner: Color) -> Optional[NextMovePair]:
         pair = get_next_move_pair(self.engine, node, winner, pair_limit)
         if node.board().turn == winner and not self.is_valid_attack(pair):
-            print("No valid attack {}".format(pair))
+            print("No more chaos {}".format(pair))
             return None
         return pair
 
@@ -1308,7 +1205,7 @@ class Generator:
         return [move] + follow_up
 
 
-def analyze_game(game_data: str, generator) -> List[Puzzle]:
+def analyze_game(game: Game, generator) -> List[Puzzle]:
     """ Parses a PGN game and analyzes it for puzzles. """
     game = chess.pgn.read_game(StringIO(game_data))
     if game:
@@ -1324,11 +1221,6 @@ def make_engine(executable: str, threads: int) -> SimpleEngine:
     engine = SimpleEngine.popen_uci(executable)
     engine.configure({'Threads': threads})
     return engine
-
-# --- SETTINGS ---
-PGN_FILE = "./data/kramford_games.pgn"  # Change this to the actual filename
-mate_soon = Mate(15)
-DB_FILE = "puzzles.db"
 
 
 def create_database():
@@ -1381,16 +1273,22 @@ def load_puzzles():
         tags = row[2].split(",")
         game = pickle.loads(row[3])
 
-        puzzle = Puzzle(node=None, moves=moves, cp=cp, tags=tags, game=game)
+        puzzle = Puzzle(node=None, moves=moves, cp=cp)
         puzzles.append(puzzle)
 
     conn.close()
     return puzzles
 
-
+# --- SETTINGS ---
+PGN_FILE = "./data/0YiOyDOR.pgn"  # Change this to the actual filename
+mate_soon = Mate(15)
+DB_FILE = "puzzles.db"
+ADVANTAGE_THRESHOLD = 0.6
+ONLY_MOVE_THRESHOLD = 0.35
 if __name__ == "__main__":
     sys.setrecursionlimit(10000) # else node.deepcopy() sometimes fails?
     create_database()
     engine = make_engine('stockfish', '16')
     generator = Generator(engine)
     process_pgn_file(PGN_FILE, generator)
+    print("Done")
