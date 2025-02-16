@@ -7,7 +7,7 @@ import math
 import copy
 from puzzle import Puzzle
 from typing import List
-MISTAKE_THRESHOLD = 0.3
+MISTAKE_THRESHOLD = 0.23
 
 class Generator:
     def __init__(self, engine):
@@ -43,6 +43,7 @@ class Generator:
                         tactic_node = game_snapshot.add_variation(best_move)
                         puzzles.append(Puzzle(tactic_node))
                     prev_score = -score
+        return puzzles
 
     def win_chances(self, score: Score) -> float:
         """
