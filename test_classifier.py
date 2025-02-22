@@ -1,5 +1,5 @@
 import unittest
-from classifier import is_fork, is_piece_hanging
+from classifier import is_fork, is_piece_hanging, is_pin
 
 class TestClassifier(unittest.TestCase):
 
@@ -17,6 +17,11 @@ class TestClassifier(unittest.TestCase):
        fen = "7r/pR2pp2/B1p1k1pp/2qn4/2Pb2PP/1Q6/P4P2/6K1 w - - 1 28"
        best_move = "c4d5"
        self.assertTrue(is_piece_hanging(fen, best_move))
+   
+    def test_pin(self) -> None:
+         fen = "7r/pR2pp2/B1p1k1pp/3q4/3b2PP/1Q6/P4P2/6K1 w - - 0 29"
+         best_move = "a6c4"
+         self.assertTrue(is_pin(fen, best_move)) 
 
 if __name__ == '__main__':
     unittest.main()

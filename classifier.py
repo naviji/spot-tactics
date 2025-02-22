@@ -25,6 +25,42 @@ def is_piece_hanging(fen, last_move):
         return False
     return is_hanging(node.parent.board(), captured, to)
 
+def is_pin(fen, last_move):
+    # TODO: Make it work with relative pins
+    game = game_from_fen(fen, last_move)
+    node = game.end()
+    for pinned_square, pinned_piece in node.board().piece_map().items():
+        if pinned_piece.color == (not node.turn()): #node.turn is black
+            continue
+        # Gives me absolute pin from square to king
+        pin_dir = node.board().pin(pinned_piece.color, pinned_square)
+        if pin_dir == chess.BB_ALL:
+                continue
+        for attacker_square in node.board().attackers(not node.turn(), pinned_square):
+                if attacker_square in pin_dir:
+                    attacker = node.board().piece_at(attacker_square)
+                    assert attacker
+                    if (
+                        values[pinned_piece.piece_type]
+                        > values[attacker.piece_type]
+                    ):
+                        return True
+                    if (
+                        # TODO: Test this part
+                        is_hanging(node.board(), pinned_piece, pinned_square)
+                        # confirms that the attacker is not attacked
+                        and pinned_square not in node.board().attackers(node.turn(), attacker_square)
+                        # piece hypothetically would have liked to escape
+                        and [
+                            m
+                            for m in node.board().pseudo_legal_moves
+                            if m.from_square == pinned_square
+                            and m.to_square not in pin_dir
+                        ]
+                    ):
+                        return True
+    return False
+
 def is_hanging(board: chess.Board, piece: chess.Piece, square: chess.Square) -> bool:
     return not is_defended(board, piece, square)
 

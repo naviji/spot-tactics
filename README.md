@@ -9,4 +9,5 @@ TODO:
 OBSERVATIONS:
 
 Fork logic didnt' consider forks done by king
+Hanging pieces doesn't consider pieces that can be exchanged for gain of material
 Pin logic only considers absolute pins to the king
