@@ -20,17 +20,24 @@ class Puzzle:
         ]
 
 def fork(fen: str, best_move: str) -> bool:
-    node = Game.from_board(Board(fen)).add_main_variation(Move.from_uci(best_move))
+    game = _node_from_fen_with_last_move(fen, best_move)
     nb = 0
-    for piece, square in attacked_opponent_squares(
-        node.board(), node.move.to_square, not node.board().turn
+    for _, square in attacked_opponent_squares(
+        game.board(), game.move.to_square, not game.board().turn
     ):
-        if is_square_attacked_more_than_defended(node.board(), square, node.board().turn):
+        if is_square_attacked_more_than_defended(game.board(), square, game.board().turn):
             nb += 1
     return nb > 1
 
-def pin(node: ChildNode) -> bool:
-    return pin_prevents_attack(node) or pin_prevents_escape(node)
+def pin(fen:str, best_move: str) -> bool:
+    node = _node_from_fen_with_last_move(fen, best_move)
+    return pin_prevents_escape(node)
+
+def _node_from_fen_with_last_move(fen: str, last_move: str) -> Game:
+    board = Board(fen)
+    node = Game.from_board(board)
+    node.add_main_variation(Move.from_uci(last_move))
+    return node
 
 
 # the pinned piece can't attack a player piece
@@ -58,7 +65,7 @@ def pin_prevents_attack(node: ChildNode) -> bool:
 
 
 # the pinned piece can't escape the attack
-def pin_prevents_escape(node: ChildNode) -> bool:
+def pin_prevents_escape(node: Game) -> bool:
     board = node.board()
     for pinned_square, pinned_piece in board.piece_map().items():
         if pinned_piece.color == node.board().turn:

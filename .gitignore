@@ -5,3 +5,4 @@ _pycache__/
 puzzles.db
 __pycache__/*
 .vscode
+.ipynb_checkpoints/
