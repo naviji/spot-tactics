@@ -19,11 +19,25 @@ def is_fork(fen, last_move):
 def is_piece_hanging(fen, last_move):
     game = game_from_fen(fen, last_move)
     node = game.end()
-    to = node.move.to_square # 35 - > d5
+    to = node.move.to_square
     captured = node.parent.board().piece_at(to)
     if not captured:
         return False
     return is_hanging(node.parent.board(), captured, to)
+
+def is_mate_in_1(fen, last_move):
+    game = game_from_fen(fen, last_move)
+    node = game.end()
+    return node.board().is_checkmate()
+
+def is_sacrifice(fen, last_move):
+    # Check whether player intentionally hung a piece
+    game = game_from_fen(fen, last_move)
+    node = game.end()
+    to = node.move.to_square
+    possible_sacrifice = node.board().piece_at(to)
+    return is_hanging(node.board(), possible_sacrifice, to)
+
 
 def is_pin(fen, last_move):
     # TODO: Make it work with relative pins
@@ -80,6 +94,10 @@ def is_defended(board: chess.Board, piece: chess.Piece, square: chess.Square) ->
 
     # If the piece is worth more than the cheapest attacking piece, it's hanging
     if value_of_piece_under_attack > min_value_piece(board, attackers):
+        return False
+    
+    if value_of_piece_under_attack == min_value_piece(board, attackers) and \
+        len(attackers) > len(defenders):
         return False
 
     return True  # Otherwise, it's defended
