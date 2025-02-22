@@ -2,6 +2,9 @@ from typing import List, Tuple
 import chess
 import chess.pgn
 
+ray_piece_types = [chess.QUEEN, chess.ROOK, chess.BISHOP]
+values = { chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 10**9 }
+
 def is_fork(fen, last_move):
     game = game_from_fen(fen, last_move)
     nb = 0
@@ -13,6 +16,60 @@ def is_fork(fen, last_move):
             nb += 1
     return nb > 1
 
+def is_piece_hanging(fen, last_move):
+    game = game_from_fen(fen, last_move)
+    node = game.end()
+    to = node.move.to_square # 35 - > d5
+    captured = node.parent.board().piece_at(to)
+    if not captured:
+        return False
+    return is_hanging(node.parent.board(), captured, to)
+
+def is_hanging(board: chess.Board, piece: chess.Piece, square: chess.Square) -> bool:
+    return not is_defended(board, piece, square)
+
+def is_defended(board: chess.Board, piece: chess.Piece, square: chess.Square) -> bool:
+    # TODO: Doesn't account for defenders that do not defend due to absolute pins
+
+    value_of_piece_under_attack = values[piece.piece_type]
+    # Find direct and ray attackers and defenders 
+    defenders = board.attackers(piece.color, square) | ray_attackers(board, piece.color, square)
+    attackers = board.attackers(not piece.color, square) | ray_attackers(board, not piece.color, square)
+    
+    if len(attackers) == 0:
+        return True  # No threats, so it's defended
+
+    if len(defenders) == 0:
+        return False  # No defenders, so it's hanging
+
+    # If the piece is worth more than the cheapest attacking piece, it's hanging
+    if value_of_piece_under_attack > min_value_piece(board, attackers):
+        return False
+
+    return True  # Otherwise, it's defended
+    
+
+
+def min_value_piece(board: chess.Board, squares: chess.SquareSet):
+    if not squares:
+        return 0
+    min_value = values[chess.QUEEN]
+    for square in squares:
+        piece_at_square = board.piece_type_at(square)
+        min_value = min(min_value, values[piece_at_square])
+    return min_value
+
+def ray_attackers(board: chess.Board, color: chess.Color, square: chess.Square) -> chess.SquareSet:
+    attackers = chess.SquareSet()
+    # ray defense https://lichess.org/editor/6k1/3q1pbp/2b1p1p1/1BPp4/rp1PnP2/4PRNP/4Q1P1/4B1K1_w_-_-_0_1
+    for attacker in board.attackers(not color, square):
+        attacker_piece = board.piece_at(attacker)
+        assert(attacker_piece)
+        if attacker_piece.piece_type in ray_piece_types:
+            bc = board.copy(stack = False)
+            bc.remove_piece_at(attacker)
+            attackers = attackers.union(bc.attackers(color, square)) 
+    return attackers
 
 def is_square_attacked_more_than_defended(board: chess.Board, square: chess.Square, pov: chess.Color) -> bool:
     attackers_white = board.attackers_mask(chess.WHITE, square)
