@@ -1,5 +1,5 @@
 import unittest
-from classifier import is_fork, is_piece_hanging, is_pin, is_mate_in_1, is_sacrifice
+from classifier import is_fork, is_piece_hanging, is_pin, is_mate_in_1, is_sacrifice, is_deflection
 
 class TestClassifier(unittest.TestCase):
 
@@ -49,22 +49,36 @@ class TestClassifier(unittest.TestCase):
          self.assertTrue(is_pin(fen, best_move)) 
       
     def test_sacrifice(self) -> None:
+         # TODO: Seems like this could also be a clearance
          fen = "r5nr/6pp/p1kbbp2/1ppNp3/4P3/2P1BP2/PP1R1P1P/2KR1B2 w - - 2 16"
          best_move = "d5b4"
          self.assertTrue(is_sacrifice(fen, best_move)) 
+
+    @unittest.skip("TODO")
+    def test_clearance_sacrifice(self) -> None:
+         # TODO: Seems like this could also be a clearance
+         fen = "r5nr/6pp/p1kbbp2/1ppNp3/4P3/2P1BP2/PP1R1P1P/2KR1B2 w - - 2 16"
+         best_move = "d5b4"
+         self.assertTrue(is_clearance_sacrifice(fen, best_move)) 
 
     def test_mate_in_1(self) -> None:
          fen = "6rk/ppp5/3p1p1p/8/2P1PQq1/1B6/PP3P1K/3R4 w - - 0 28"
          best_move = "f4h6"
          self.assertTrue(is_mate_in_1(fen, best_move))
-   
-    @unittest.skip("to be implemented later")
+ 
+    @unittest.skip("TODO")
+    def test_deflection(self) -> None:
+         fen = "3r2nr/6pp/p1kbbN2/1pp1p3/4P3/2P1BP2/PP1R1P1P/2KR1B2 w - - 1 17"
+         best_move = "f6e8"
+         self.assertTrue(is_deflection(fen, best_move))
+     
+    @unittest.skip("TODO")
     def test_mate_in_9(self) -> None:
          fen = "7r//B1p1k1pp/3q4/3b2PP/1Q6/P4P2/6K1 w - - 0 29"
          best_move = "d3d4"
          self.assertTrue(is_mate_in_9(fen, best_move)) 
 
-    @unittest.skip("to be implemented later")
+    @unittest.skip("TODO")
     def test_ruin_pawn_structure(self) -> None:
          fen = "1r4k1/2qnppb1/2p2np1/2Pp3p/2bP3N/4P1P1/1B1N1PBP/Q2R2K1 w - - 4 19"
          best_move = "d2c4"

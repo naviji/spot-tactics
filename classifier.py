@@ -30,6 +30,11 @@ def is_mate_in_1(fen, last_move):
     node = game.end()
     return node.board().is_checkmate()
 
+def is_deflection(fen, last_move):
+    game = game_from_fen(fen, last_move)
+    node = game.end()
+    pass
+
 def is_sacrifice(fen, last_move):
     # Check whether player intentionally hung a piece
     game = game_from_fen(fen, last_move)
@@ -38,6 +43,57 @@ def is_sacrifice(fen, last_move):
     possible_sacrifice = node.board().piece_at(to)
     return is_hanging(node.board(), possible_sacrifice, to)
 
+# def is_clearance_sacrifice(fen, last_move):
+#     game = game_from_fen(fen, last_move)
+#     node = game.end()
+#     piece = node.board().piece_at(node.move.to_square)
+
+
+    # if check:
+    #    try each valid move to get out of check:
+    #       check for tactics in the ray
+    # else:
+    #    try capturing the piece:
+    #       check for tactics in the ray
+    #    
+    #     
+
+    # Cases after clearance:
+    # 1. Capture back the piece
+    # 2. Escape from check
+    # 3. Run away
+
+    # for each ray_type_piece of not(node.turn())
+    #   draw a ray between ray_type_piece and node.move.from_square
+    #   if any enemy peice hanging in the ray squares 
+
+    # if piece and piece.piece_type in util.ray_piece_types:
+    #     prev = node.parent.parent
+    #     assert prev
+    #     prev_move = prev.move
+    #     assert prev_move
+    #     assert isinstance(node.parent, ChildNode)
+    #     if (
+    #         not prev_move.promotion
+    #         and prev_move.to_square != node.move.from_square
+    #         and prev_move.to_square != node.move.to_square
+    #         and not node.parent.board().is_check()
+    #         and (
+    #             not board.is_check()
+    #             or util.moved_piece_type(node.parent) != KING
+    #         )
+    #     ):
+    #         if (
+    #             prev_move.from_square == node.move.to_square
+    #             or prev_move.from_square
+    #             in SquareSet.between(node.move.from_square, node.move.to_square)
+    #         ):
+    #             if (
+    #                 prev.parent
+    #                 and not prev.parent.board().piece_at(prev_move.to_square)
+    #                 or util.is_in_bad_spot(prev.board(), prev_move.to_square)
+    #             ):
+    #                 return True
 
 def is_pin(fen, last_move):
     # TODO: Make it work with relative pins
